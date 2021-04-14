@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magic Image</title>
+</head>
+<body>
+    <section class="part0">
+        <h1>Magic Image</h1>
+        <p>Generates an innocent-looked image with specified content.</p>
+        <p>If you look the generated image with a distance, it will show.</p>
+        <p>Select an image: <input type="file" /></p>
+        <form>
+            <span>Adjust:</span><br />
+            <span>Bar type: </span>
+            <label><input type="radio" name="bartype" checked value="vertical" />Vertical</label>
+            <label><input type="radio" name="bartype" value="horizonal" />Horizonal</label><br />
+            <span>Bar width: </span><input type="range" name="barwidth" min="0" max="20" value="5" /><br />
+            <span>Image visibility: </span><input type="range" name="visibility" min="0" max="100" value="10" /><br />
+        </form>
+        <p><button id="generate">Generate</button></p>
+        <canvas></canvas>
+        <p><button id="download">Download Generated Image</button></p>
+    </section>
+    <script>
+        class MagicImage {
+            constructor() {
+                this.canvas = document.querySelector('canvas');
+                this.imageInput = document.querySelector('input[type="file"]');
+                this.selectEvent = null;
+                this.imageInput.addEventListener('change', event => {
+                    this.selectEvent = event;
+                    this.generate();
+                });
+                document.querySelector('button#generate').addEventListener('click', this.generate.bind(this));
+            }
+            generate() {
+                let file = this.selectEvent.target.files[0];
+                let filereader = new FileReader();
+                filereader.onload = event0 => {
+                    let imgData = event0.target.result;
+                    let img = new Image();
+                    img.src = imgData;
+                    img.onload = event1 => {
+                        this.canvas.width = img.width;
+                        this.canvas.height = img.height;
+                        let context = this.canvas.getContext('2d');
+                        context.drawImage(img, 0, 0);
+                        // https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Tutorial/Pixel_manipulation_with_canvas
+                        const imageData = context.getImageData(0, 0, this.canvas.width, this.canvas.height);
+                        const data = imageData.data;
+                        let odd = 0;
+                        let even = parseInt(document.querySelector('input[name="barwidth"]').value);
+                        let m = parseInt(document.querySelector('input[name="visibility"]').value) / 100;
+                        let bartype = [... document.querySelectorAll('input[name="bartype"]')].filter(x => x.checked)[0].value;
+                        for (var i = 0; i < data.length; i += 4) {
+                            let condition = odd > even;
+                            let value0 = Math.floor(condition ? 255 - (255 - data[i]) * m : 0 + data[i] * m);
+                            let value1 = Math.floor(condition ? 255 - (255 - data[i + 1]) * m : 0 + data[i + 1] * m);
+                            let value2 = Math.floor(condition ? 255 - (255 - data[i + 2]) * m : 0 + data[i + 2] * m);
+                            data[i]     = value0;     // red
+                            data[i + 1] = value1; // green
+                            data[i + 2] = value2; // blue
+                            data[i + 3] = 255;
+                            if (bartype == 'vertical') {
+                                odd ++;
+                                odd %= even * 2;
+                                if (i / 4 % this.canvas.width == 0) odd = 0;
+                            } else if (bartype == 'horizonal') {
+                                if (i / 4 % this.canvas.width == 0) {
+                                    odd ++;
+                                    odd %= even * 2;
+                                }
+                            }
+                        }
+                        context.putImageData(imageData, 0, 0);
+                        document.querySelector('button#download').onclick = event => {
+                            this.canvas.toBlob(blob => {
+                                let a = document.createElement('a');
+                                a.href = URL.createObjectURL(blob);
+                                a.download = 'image.png';
+                                a.click();
+                            });
+                        }
+                    }
+                }
+                filereader.readAsDataURL(file);
+            }
+        }
+        window.magic_image = new MagicImage();
+    </script>
+</body>
+</html>
